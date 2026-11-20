@@ -1,0 +1,6 @@
+# Default review owner. Branch protection must separately require code-owner review.
+/* @frpboy
+/.github/ @frpboy
+/docs/ @frpboy
+/packages/ @frpboy
+/skills/ @frpboy
