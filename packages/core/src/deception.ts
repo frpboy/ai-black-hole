@@ -23,7 +23,7 @@ export interface DecoyDefinition {
   body: string;
   /** Maximum decoy responses served to one client before denial. Defaults to 25. */
   maxRequestsPerClient?: number;
-  /** Epoch milliseconds after which the decoy stops matching. */
+  /** Epoch milliseconds after which the decoy stops matching. Defaults to registration time plus deception.decoyTtlMs. */
   expiresAt?: number;
 }
 
@@ -43,6 +43,11 @@ export interface DeceptionOptions {
   maxDecoys?: number;
   /** Maximum synthetic body size in bytes. Defaults to 16384, maximum 65536. */
   maxBodyBytes?: number;
+  /**
+   * Default decoy lifetime in milliseconds when a decoy sets no expiresAt.
+   * Every decoy has a finite lifetime. Defaults to 24 hours, maximum 30 days.
+   */
+  decoyTtlMs?: number;
   /** Canary identifier configuration. Canaries require enabled deception. */
   canary?: CanaryOptions;
 }
@@ -60,14 +65,18 @@ export interface CanaryHandle {
   expiresAt: number;
 }
 
-export type DecoyLookup =
-  | { kind: "serve"; response: DecoyResponse }
-  | { kind: "exhausted"; limit: number }
-  | { kind: "none" };
+export interface DecoyMatch {
+  response: DecoyResponse;
+  maxRequestsPerClient: number;
+}
 
 export interface DecoyRegistry {
-  /** Resolve a request against the registry and record a hit for the client. */
-  lookup(path: string, method: string, clientKey: string, timestamp: number): DecoyLookup;
+  /** Match a request against the registry without consuming response budget. */
+  match(path: string, method: string, timestamp: number): DecoyMatch | undefined;
+  /** Response budget left for this client. Fail-closed: an untracked client at counter capacity reads as 0. */
+  remaining(path: string, method: string, clientKey: string): number;
+  /** Consume one response from the client's budget. Call only when serving the synthetic response. */
+  charge(path: string, method: string, clientKey: string): void;
   /** Fetch the synthetic response without recording a hit. */
   responseFor(path: string, method?: string): DecoyResponse | undefined;
   readonly size: number;
@@ -90,6 +99,8 @@ const DEFAULT_MAX_BODY_BYTES = 16_384;
 const HARD_MAX_BODY_BYTES = 65_536;
 const DEFAULT_MAX_REQUESTS_PER_CLIENT = 25;
 const HARD_MAX_REQUESTS_PER_CLIENT = 1_000;
+const DEFAULT_DECOY_TTL_MS = 86_400_000;
+const HARD_MAX_DECOY_TTL_MS = 2_592_000_000; // 30 days
 const DEFAULT_CANARY_TTL_MS = 86_400_000;
 const DEFAULT_CANARY_MAX_ACTIVE = 4;
 const HARD_CANARY_MAX_ACTIVE = 16;
@@ -101,17 +112,21 @@ interface NormalizedDecoy {
   path: string;
   response: DecoyResponse;
   maxRequestsPerClient: number;
-  expiresAt?: number;
+  expiresAt: number;
 }
 
-export function createDecoyRegistry(options: DeceptionOptions = {}): DecoyRegistry {
+export function createDecoyRegistry(options: DeceptionOptions = {}, registeredAt = Date.now()): DecoyRegistry {
   const maxDecoys = options.maxDecoys ?? DEFAULT_MAX_DECOYS;
   const maxBodyBytes = options.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES;
+  const decoyTtlMs = options.decoyTtlMs ?? DEFAULT_DECOY_TTL_MS;
   if (!Number.isInteger(maxDecoys) || maxDecoys < 1 || maxDecoys > HARD_MAX_DECOYS) {
     throw new Error(`deception.maxDecoys must be an integer between 1 and ${HARD_MAX_DECOYS}`);
   }
   if (!Number.isInteger(maxBodyBytes) || maxBodyBytes < 1 || maxBodyBytes > HARD_MAX_BODY_BYTES) {
     throw new Error(`deception.maxBodyBytes must be an integer between 1 and ${HARD_MAX_BODY_BYTES}`);
+  }
+  if (!Number.isFinite(decoyTtlMs) || decoyTtlMs <= 0 || decoyTtlMs > HARD_MAX_DECOY_TTL_MS) {
+    throw new Error(`deception.decoyTtlMs must be finite, positive and at most ${HARD_MAX_DECOY_TTL_MS}`);
   }
   const definitions = options.decoys ?? [];
   if (definitions.length > maxDecoys) {
@@ -119,23 +134,25 @@ export function createDecoyRegistry(options: DeceptionOptions = {}): DecoyRegist
   }
   const decoys = new Map<string, NormalizedDecoy>();
   for (const definition of definitions) {
-    const decoy = normalizeDecoy(definition, maxBodyBytes);
+    const decoy = normalizeDecoy(definition, maxBodyBytes, registeredAt + decoyTtlMs);
     const key = `${decoy.method} ${decoy.path}`;
     if (decoys.has(key)) {
       throw new Error(`duplicate decoy definition for ${key}`);
     }
     decoys.set(key, decoy);
   }
+  // Per-client response budgets. Bounded at MAX_COUNTER_ENTRIES and
+  // fail-closed: at capacity an untracked client reads as exhausted rather
+  // than evicting another client's live budget record.
   const counters = new Map<string, number>();
 
-  function hitCount(key: string): number {
-    const count = (counters.get(key) ?? 0) + 1;
-    counters.delete(key);
-    if (counters.size >= MAX_COUNTER_ENTRIES) {
-      const oldest = counters.keys().next().value as string | undefined;
-      if (oldest !== undefined) counters.delete(oldest);
-    }
-    counters.set(key, count);
+  function counterKey(path: string, method: string, clientKey: string): string {
+    return `${method.toUpperCase()} ${path} ${clientKey}`;
+  }
+
+  function served(key: string, limit: number): number {
+    const count = counters.get(key);
+    if (count === undefined) return counters.size >= MAX_COUNTER_ENTRIES ? limit : 0;
     return count;
   }
 
@@ -143,15 +160,22 @@ export function createDecoyRegistry(options: DeceptionOptions = {}): DecoyRegist
     get size() {
       return decoys.size;
     },
-    lookup(path: string, method: string, clientKey: string, timestamp: number): DecoyLookup {
+    match(path: string, method: string, timestamp: number): DecoyMatch | undefined {
       const decoy = decoys.get(`${method.toUpperCase()} ${path}`);
-      if (!decoy) return { kind: "none" };
-      if (decoy.expiresAt !== undefined && timestamp >= decoy.expiresAt) return { kind: "none" };
-      const count = hitCount(`${decoy.method} ${decoy.path} ${clientKey}`);
-      if (count > decoy.maxRequestsPerClient) {
-        return { kind: "exhausted", limit: decoy.maxRequestsPerClient };
-      }
-      return { kind: "serve", response: decoy.response };
+      if (!decoy || timestamp >= decoy.expiresAt) return undefined;
+      return { response: decoy.response, maxRequestsPerClient: decoy.maxRequestsPerClient };
+    },
+    remaining(path: string, method: string, clientKey: string): number {
+      const decoy = decoys.get(`${method.toUpperCase()} ${path}`);
+      if (!decoy) return 0;
+      return decoy.maxRequestsPerClient - served(counterKey(path, method, clientKey), decoy.maxRequestsPerClient);
+    },
+    charge(path: string, method: string, clientKey: string): void {
+      const key = counterKey(path, method, clientKey);
+      const count = counters.get(key);
+      if (count === undefined && counters.size >= MAX_COUNTER_ENTRIES) return;
+      counters.delete(key);
+      counters.set(key, (count ?? 0) + 1);
     },
     responseFor(path: string, method = "GET"): DecoyResponse | undefined {
       return decoys.get(`${method.toUpperCase()} ${path}`)?.response;
@@ -162,7 +186,7 @@ export function createDecoyRegistry(options: DeceptionOptions = {}): DecoyRegist
   };
 }
 
-function normalizeDecoy(definition: DecoyDefinition, maxBodyBytes: number): NormalizedDecoy {
+function normalizeDecoy(definition: DecoyDefinition, maxBodyBytes: number, defaultExpiresAt: number): NormalizedDecoy {
   if (typeof definition.path !== "string" || !definition.path.startsWith("/")) {
     throw new Error("decoy.path must be a string starting with /");
   }
@@ -170,8 +194,8 @@ function normalizeDecoy(definition: DecoyDefinition, maxBodyBytes: number): Norm
   const method = (definition.method ?? "GET").toUpperCase();
   if (!/^[A-Z]{1,16}$/.test(method)) throw new Error("decoy.method must be 1-16 uppercase letters");
   const status = definition.status ?? 200;
-  if (!Number.isInteger(status) || status < 100 || status > 599) {
-    throw new Error("decoy.status must be an integer between 100 and 599");
+  if (!Number.isInteger(status) || status < 200 || status > 599) {
+    throw new Error("decoy.status must be an integer between 200 and 599");
   }
   const contentType = definition.contentType ?? "application/json";
   if (typeof contentType !== "string" || contentType.length === 0 || contentType.length > 128) {
@@ -200,7 +224,7 @@ function normalizeDecoy(definition: DecoyDefinition, maxBodyBytes: number): Norm
     path: definition.path,
     response: { status, contentType, body: definition.body },
     maxRequestsPerClient,
-    expiresAt: definition.expiresAt,
+    expiresAt: definition.expiresAt ?? defaultExpiresAt,
   };
 }
 

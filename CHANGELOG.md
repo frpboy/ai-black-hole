@@ -19,7 +19,7 @@ The project is in early development. Public APIs are provisional and no stable r
 - Development plan, roadmap, release checklist and repository agent instructions.
 
 ### Added (2026-11-20)
-- Opt-in bounded deception primitives (roadmap M3, first slice): synthetic decoy registry with per-client response budgets and expiry, canary identifiers with rotation and ttl, `decoy.accessed` and `canary.triggered` security events, and `decoy`/`deny` policy actions.
+- Opt-in bounded deception primitives (roadmap M3, first slice): synthetic decoy registry with per-client response budgets, a finite default lifetime (24 hours, configurable via `deception.decoyTtlMs`) and optional expiry, canary identifiers with rotation and ttl, `decoy.accessed` and `canary.triggered` security events, and `decoy`/`deny` policy actions. Budgets are consumed only when a synthetic response is served and fail closed at counter capacity.
 - Express adapter serves synthetic decoy responses in enforce mode and answers exhausted decoy budgets with 404.
 - Design concepts adapted from BLA (https://github.com/qybaihe/bla, MIT); attribution in NOTICE and docs/BLA_ADAPTATION.md.
 

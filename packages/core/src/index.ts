@@ -50,7 +50,7 @@ export function createBlackHole(options: BlackHoleOptions = {}): BlackHoleRuntim
   // Deception is opt-in and never active while the runtime mode is "off".
   const deceptionEnabled = mode !== "off" && options.deception?.enabled === true;
   const registry: DecoyRegistry | undefined = deceptionEnabled
-    ? createDecoyRegistry(options.deception)
+    ? createDecoyRegistry(options.deception, now())
     : undefined;
   const canaries: CanaryStore | undefined =
     deceptionEnabled && options.deception?.canary !== undefined
@@ -79,14 +79,15 @@ export function createBlackHole(options: BlackHoleOptions = {}): BlackHoleRuntim
 
     const events: SecurityEvent[] = [{ type: "request.observed", timestamp, requestId: input.requestId, path: input.path }];
 
-    const decoy = registry?.lookup(input.path, input.method, input.clientKey, timestamp) ?? { kind: "none" as const };
-    if (decoy.kind !== "none") {
+    const decoy = registry?.match(input.path, input.method, timestamp);
+    const decoyRemaining = decoy ? registry!.remaining(input.path, input.method, input.clientKey) : 0;
+    if (decoy) {
       events.push({
         type: "decoy.accessed",
         timestamp,
         requestId: input.requestId,
         path: input.path,
-        reason: decoy.kind === "exhausted" ? "Decoy session budget exhausted" : "Matched synthetic decoy route",
+        reason: decoyRemaining <= 0 ? "Decoy session budget exhausted" : "Matched synthetic decoy route",
       });
     }
     if (canaries?.matches(input.path, timestamp)) {
@@ -101,16 +102,18 @@ export function createBlackHole(options: BlackHoleOptions = {}): BlackHoleRuntim
 
     let action: DecisionAction;
     let reason: string;
-    if (decoy.kind === "exhausted") {
+    if (decoy && decoyRemaining <= 0) {
       action = mode === "enforce" ? "deny" : "observe";
-      reason = `Decoy per-client response budget exhausted: maximum ${decoy.limit} responses per client`;
+      reason = `Decoy per-client response budget exhausted: maximum ${decoy.maxRequestsPerClient} responses per client`;
     } else if (exceeded) {
+      // Throttling wins over serving a decoy and does not consume decoy budget.
       action = mode === "enforce" ? "throttle" : "observe";
       reason = `Rate limit threshold exceeded: maximum ${maxRequests} requests per ${windowMs}ms`;
       events.push({ type: "rate_limit.exceeded", timestamp, requestId: input.requestId, path: input.path, action, reason });
-    } else if (decoy.kind === "serve") {
+    } else if (decoy) {
       action = mode === "enforce" ? "decoy" : "observe";
       reason = "Matched synthetic decoy route";
+      if (mode === "enforce") registry!.charge(input.path, input.method, input.clientKey);
     } else {
       action = "allow";
       reason = "No configured runtime rule matched";

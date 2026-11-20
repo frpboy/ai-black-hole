@@ -84,7 +84,7 @@ const security = createBlackHole({
 // the token emit a canary.triggered event.
 ```
 
-Decoy bodies must be synthetic and are size-bounded; per-client response budgets are enforced and every access emits a redacted event. See [Safe Deception Patterns](skills/ai-black-hole/references/deception-patterns.md).
+Decoy bodies must be synthetic and are size-bounded; every decoy has a finite lifetime (default 24 hours) and per-client response budgets are enforced. Matching requests emit security events; events record the request path, so do not place sensitive data in paths. See [Safe Deception Patterns](skills/ai-black-hole/references/deception-patterns.md).
 
 See [Getting Started](docs/GETTING_STARTED.md) and [the Express example](examples/express-api/README.md).
 

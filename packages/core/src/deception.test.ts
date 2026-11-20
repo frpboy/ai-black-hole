@@ -84,6 +84,84 @@ describe("decoy primitives", () => {
     expect(other.decision.action).toBe("decoy");
   });
 
+  it("does not consume decoy budget in monitor mode", () => {
+    const monitor = createBlackHole({
+      mode: "monitor",
+      now: () => 1000,
+      deception: { enabled: true, decoys: [{ path: "/decoy", body: "{}", maxRequestsPerClient: 1 }] },
+    });
+    monitor.inspect({ requestId: "r1", method: "GET", path: "/decoy", clientKey: "a" });
+    monitor.inspect({ requestId: "r2", method: "GET", path: "/decoy", clientKey: "a" });
+    const result = monitor.inspect({ requestId: "r3", method: "GET", path: "/decoy", clientKey: "a" });
+    expect(result.decision.action).toBe("observe");
+    expect(result.decision.reason).toBe("Matched synthetic decoy route");
+  });
+
+  it("does not consume decoy budget when the rate limiter throttles the request", () => {
+    let clock = 1000;
+    const runtime = createBlackHole({
+      mode: "enforce",
+      rateLimit: { windowMs: 60_000, maxRequests: 1 },
+      now: () => clock,
+      deception: { enabled: true, decoys: [{ path: "/decoy", body: "{}", maxRequestsPerClient: 1 }] },
+    });
+    runtime.inspect({ requestId: "r1", method: "GET", path: "/other", clientKey: "a" });
+    const throttled = runtime.inspect({ requestId: "r2", method: "GET", path: "/decoy", clientKey: "a" });
+    expect(throttled.decision.action).toBe("throttle");
+    clock += 61_000;
+    const afterWindow = runtime.inspect({ requestId: "r3", method: "GET", path: "/decoy", clientKey: "a" });
+    expect(afterWindow.decision.action).toBe("decoy");
+  });
+
+  it("fails closed at counter capacity without restoring exhausted budgets", () => {
+    const runtime = createBlackHole({
+      mode: "enforce",
+      rateLimit: { maxRequests: 100_000 },
+      now: () => 1000,
+      deception: { enabled: true, decoys: [{ path: "/decoy", body: "{}", maxRequestsPerClient: 1 }] },
+    });
+    runtime.inspect({ requestId: "a1", method: "GET", path: "/decoy", clientKey: "a" });
+    expect(
+      runtime.inspect({ requestId: "a2", method: "GET", path: "/decoy", clientKey: "a" }).decision.action,
+    ).toBe("deny");
+    for (let i = 0; i < 10_000; i++) {
+      runtime.inspect({ requestId: `x${i}`, method: "GET", path: "/decoy", clientKey: `c${i}` });
+    }
+    expect(
+      runtime.inspect({ requestId: "a3", method: "GET", path: "/decoy", clientKey: "a" }).decision.action,
+    ).toBe("deny");
+    expect(
+      runtime.inspect({ requestId: "z1", method: "GET", path: "/decoy", clientKey: "brand-new" }).decision.action,
+    ).toBe("deny");
+  });
+
+  it("applies the default finite lifetime when a decoy sets no expiresAt", () => {
+    let clock = 1000;
+    const runtime = createBlackHole({
+      mode: "enforce",
+      now: () => clock,
+      deception: { enabled: true, decoyTtlMs: 10_000, decoys: [{ path: "/decoy", body: "{}" }] },
+    });
+    expect(
+      runtime.inspect({ requestId: "r1", method: "GET", path: "/decoy", clientKey: "a" }).decision.action,
+    ).toBe("decoy");
+    clock += 20_000;
+    expect(
+      runtime.inspect({ requestId: "r2", method: "GET", path: "/decoy", clientKey: "a" }).decision.action,
+    ).toBe("allow");
+  });
+
+  it("validates the default decoy lifetime", () => {
+    expect(() =>
+      createBlackHole({ deception: { enabled: true, decoyTtlMs: 0, decoys: [{ path: "/a", body: "{}" }] } }),
+    ).toThrow();
+    expect(() =>
+      createBlackHole({
+        deception: { enabled: true, decoyTtlMs: Number.POSITIVE_INFINITY, decoys: [{ path: "/a", body: "{}" }] },
+      }),
+    ).toThrow();
+  });
+
   it("stops matching a decoy after it expires", () => {
     const runtime = createBlackHole({
       mode: "enforce",
