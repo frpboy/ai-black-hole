@@ -4,13 +4,18 @@
   "private": true,
   "description": "Open-source Deception-as-Code toolkit: an agent skill and runtime protection library.",
   "license": "Apache-2.0",
-  "engines": { "node": ">=20" },
-  "workspaces": ["packages/*", "examples/*"],
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "packages/*",
+    "examples/*"
+  ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "check": "npm run typecheck && npm test && npm run build"
+    "check": "npm run build && npm run typecheck && npm test"
   },
   "devDependencies": {
     "typescript": "^5.8.3",
