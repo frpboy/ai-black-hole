@@ -1,4 +1,4 @@
-export type RuntimeMode = "off" | "monitor" | "enforce" | "deception";
+export type RuntimeMode = "off" | "monitor" | "enforce";
 export type DecisionAction = "allow" | "observe" | "throttle" | "deny" | "decoy";
 export interface RateLimitOptions { windowMs: number; maxRequests: number; maxTrackedClients?: number }
 export interface BlackHoleOptions { mode?: RuntimeMode; rateLimit?: Partial<RateLimitOptions>; now?: () => number }
