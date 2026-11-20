@@ -1,10 +1,9 @@
 {
   "config": {
-    "default": true,
-    "MD013": false,
-    "MD024": { "siblings_only": true },
-    "MD033": false,
-    "MD041": false
+    "default": false,
+    "MD009": true,
+    "MD010": true,
+    "MD047": true
   },
   "globs": [
     "**/*.md",
