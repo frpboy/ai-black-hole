@@ -11,7 +11,7 @@ export function blackHoleMiddleware(runtime: BlackHoleRuntime, options: ExpressA
     const requestId = String(request.headers["x-request-id"] ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`);
     const clientKey = options.clientKey?.(request) ?? request.ip ?? "unknown";
     try {
-      const result = runtime.inspect({ requestId, method: request.method, path: request.path, clientKey, authenticated: Boolean(request.user) });
+      const result = runtime.inspect({ requestId, method: request.method, path: request.path, clientKey });
       if (result.events.length) options.onEvents?.(result.events);
       if (runtime.mode === "enforce" && result.decision.action === "throttle") {
         response.status(429).json({ error: "Too many requests" });
