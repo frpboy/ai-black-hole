@@ -1,1 +1,1 @@
-{"name":"ai-black-hole-express-example","version":"0.1.0","private":true,"type":"module","scripts":{"start":"tsx src/index.ts"},"dependencies":{"@ai-black-hole/core":"0.1.0","@ai-black-hole/express":"0.1.0","express":"^4.21.2"},"devDependencies":{"tsx":"^4.19.3","@types/express":"^5.0.3"}}
+{"name":"ai-black-hole-express-example","version":"0.1.0","private":true,"type":"module","scripts":{"start":"tsx src/index.ts"},"dependencies":{"@ai-black-hole/core":"0.1.0","@ai-black-hole/express":"0.1.0","express":"^5.3.0"},"devDependencies":{"tsx":"^4.19.3","@types/express":"^5.0.3"}}
