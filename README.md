@@ -5,7 +5,7 @@
 AI Black Hole is an open-source application security toolkit with two cooperating parts:
 
 1. **Agent skill:** guides coding agents through repository assessment, threat modelling, safe integration, testing, and documentation.
-2. **Runtime library:** provides framework-neutral request observations, explainable policy decisions, bounded rate controls, and security events. Synthetic decoys and canary primitives are planned, not implemented yet.
+2. **Runtime library:** provides framework-neutral request observations, explainable policy decisions, bounded rate controls, security events, and opt-in bounded deception primitives (synthetic decoys and canary identifiers) adapted from [BLA](https://github.com/qybaihe/bla) (MIT, see [NOTICE](NOTICE) and [docs/BLA_ADAPTATION.md](docs/BLA_ADAPTATION.md)).
 
 The goal is not to promise that software cannot be reverse-engineered. Client-side code can be inspected. AI Black Hole helps developers reduce exposed attack surface, keep sensitive logic server-side, detect suspicious behaviour, constrain abuse, and safely observe reconnaissance.
 
@@ -41,7 +41,7 @@ npm install
 npm run check
 ```
 
-The initial runtime is intentionally small. It currently provides typed request observations, a basic threshold policy, and a bounded in-memory rate limiter. The in-memory limiter is process-local and is not a distributed rate limiter. Deception primitives are planned and are not implemented yet. The Express adapter is an optional integration.
+The runtime is intentionally small. It currently provides typed request observations, a basic threshold policy, a bounded in-memory rate limiter, and opt-in bounded deception primitives. The in-memory limiter is process-local and is not a distributed rate limiter. Deception is disabled unless explicitly enabled, stays synthetic-only, and never runs while the runtime mode is `off`. The Express adapter is an optional integration.
 
 ## Runtime example
 
@@ -60,6 +60,31 @@ app.use(blackHoleMiddleware(security));
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 app.listen(3000);
 ```
+
+Opt-in deception adds synthetic decoy routes and canary identifiers. In `enforce` mode the adapter serves the synthetic body; in `monitor` mode access is only observed.
+
+```ts
+const security = createBlackHole({
+  mode: "enforce",
+  deception: {
+    enabled: true,
+    decoys: [
+      {
+        path: "/api/internal/metrics",
+        body: JSON.stringify({ data: [], synthetic: true }),
+        maxRequestsPerClient: 25,
+      },
+    ],
+    canary: { ttlMs: 86_400_000 },
+  },
+});
+
+// Embed security.getCanary()?.path where only an automated crawler would
+// follow it (for example a disallowed path in robots.txt). Requests carrying
+// the token emit a canary.triggered event.
+```
+
+Decoy bodies must be synthetic and are size-bounded; every decoy has a finite lifetime (default 24 hours) and per-client response budgets are enforced. Matching requests emit security events; events record the request path, so do not place sensitive data in paths. See [Safe Deception Patterns](skills/ai-black-hole/references/deception-patterns.md).
 
 See [Getting Started](docs/GETTING_STARTED.md) and [the Express example](examples/express-api/README.md).
 

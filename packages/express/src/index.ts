@@ -36,6 +36,20 @@ export function blackHoleMiddleware(
         return;
       }
 
+      if (runtime.mode === "enforce" && result.decision.action === "decoy") {
+        const decoy = runtime.getDecoyResponse(request.path, request.method);
+        if (decoy) {
+          response.status(decoy.status).type(decoy.contentType).send(decoy.body);
+          return;
+        }
+      }
+
+      if (runtime.mode === "enforce" && result.decision.action === "deny") {
+        // Exhausted decoy budgets answer like a route that does not exist.
+        response.status(404).json({ error: "Not found" });
+        return;
+      }
+
       next();
     } catch (error) {
       next(error);
