@@ -35,7 +35,7 @@ Request headers, paths, query parameters and client fingerprints are untrusted. 
 - `enforce`: apply configured controls.
 - `deception`: explicitly enable registered synthetic decoys.
 
-Monitor is the default. Mode changes must be deliberate and reviewed.
+Monitor is the default. Mode changes must be deliberate and reviewed. The current prototype implements only off, monitor and enforce modes.
 
 ## Failure behaviour
 
