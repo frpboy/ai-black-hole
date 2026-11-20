@@ -25,10 +25,10 @@ This roadmap is directional. Milestones are complete only when acceptance criter
 - [ ] False-positive and bypass testing.
 
 ## M3 - Controlled deception
-- [ ] Synthetic decoy registry and handlers.
-- [ ] Canary identifiers and event recording.
-- [ ] Request, time, response-size and memory bounds.
-- [ ] Isolation tests, expiry and emergency disable.
+- [x] Synthetic decoy registry and handlers (first slice, adapted from [BLA](https://github.com/qybaihe/bla); see docs/BLA_ADAPTATION.md).
+- [x] Canary identifiers and event recording.
+- [x] Request, time, response-size and memory bounds.
+- [ ] Isolation tests, expiry and emergency disable (unit coverage added; broader isolation tests pending).
 
 ## M4 - Integrations
 - [ ] Express adapter.
