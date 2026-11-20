@@ -78,7 +78,7 @@ AI Black Hole is not a substitute for a secure application architecture, a WAF, 
 
 ## Roadmap
 
-See [ROADMAP.md](ROADMAP.md). Initial priorities are runtime correctness, safe defaults, tests, a useful Express adapter and an agent skill that can integrate the actual runtime.
+See [ROADMAP.md](ROADMAP.md) and the detailed [Development Plan](docs/DEVELOPMENT_PLAN.md). Initial priorities are runtime correctness, safe defaults, tests, a useful Express adapter and an agent skill that can integrate the actual runtime.
 
 ## Contributing
 
