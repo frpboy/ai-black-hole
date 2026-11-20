@@ -26,6 +26,9 @@ export function createBlackHole(options: BlackHoleOptions = {}): BlackHoleRuntim
   function inspect(input: RequestObservation): InspectionResult {
     if (mode === "off") return { events: [], decision: { action: "allow", reason: "Runtime mode is off" } };
     if (!input.requestId || !input.path || !input.clientKey) throw new Error("requestId, path and clientKey are required");
+    if (input.requestId.length > 128) throw new Error("requestId must not exceed 128 characters");
+    if (input.path.length > 2048) throw new Error("path must not exceed 2048 characters");
+    if (input.clientKey.length > 256) throw new Error("clientKey must not exceed 256 characters");
     const timestamp = input.timestamp ?? now();
     if (!Number.isFinite(timestamp)) throw new Error("timestamp must be finite");
     const previous = buckets.get(input.clientKey) ?? [];
