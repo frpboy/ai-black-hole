@@ -2,6 +2,8 @@
 
 Thanks for helping improve AI Black Hole.
 
+New contributors: start with the [Contributor Onboarding Guide](docs/CONTRIBUTOR_ONBOARDING.md). The [issue triage guide](docs/ISSUE_TRIAGE.md) explains how work is selected and scoped.
+
 ## Before opening a pull request
 
 1. Search existing issues and pull requests.
