@@ -13,3 +13,11 @@ AI Black Hole is a defence-in-depth toolkit, not an anti-reverse-engineering gua
 - Logging creates privacy and retention responsibilities.
 
 Keep secrets, authorization decisions and sensitive business logic on trusted servers. Test protections against legitimate traffic before enforcement. Never configure decoys with real credentials, customer information, production records or internal infrastructure links. Never use decoys to attack or exhaust third-party systems.
+
+## Deception limitations
+
+- Canary detection matches request paths only. Tokens appearing in headers, bodies or other fields are not detected.
+- Canary tokens are low-sensitivity random identifiers, not secrets. By design they appear in security event paths and in any logs that record request paths. Never embed meaningful data in a token; rotation and expiry bound how long a token stays valid.
+- `getDecoyResponse` is a pure lookup helper: it performs no budget or expiry enforcement. Adapters and integrations must serve a decoy response only after an `inspect` call has returned a decision with action `decoy`.
+- Decoy budgets, canary state and counters are process-local in memory, like the in-memory rate limiter. Multi-instance deployments need their own coordination.
+- Decoy bodies are static operator-configured strings. The runtime enforces size and format bounds but cannot verify that content is truly synthetic; that remains an operator responsibility.
