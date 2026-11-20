@@ -2,8 +2,8 @@
 
 - Status: Proposed
 - Date: YYYY-MM-DD
-- Decision owners: 
-- Related issues/PRs: 
+- Decision owners: [Owner or team]
+- Related issues/PRs: [Links]
 
 ## Context
 
@@ -11,19 +11,21 @@ What problem, constraint, or opportunity requires a decision?
 
 ## Decision drivers
 
-- 
-- 
+- [Driver one]
+- [Driver two]
 
 ## Options considered
 
 ### Option A
 
 Benefits:
+
 Costs and risks:
 
 ### Option B
 
 Benefits:
+
 Costs and risks:
 
 ## Decision
