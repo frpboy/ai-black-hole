@@ -6,7 +6,7 @@ export interface RequestObservation { requestId: string; method: string; path: s
 export interface SecurityEvent { type: "request.observed" | "rate_limit.exceeded" | "policy.decision" | "decoy.accessed"; timestamp: number; requestId: string; path: string; action?: DecisionAction; reason?: string }
 export interface PolicyDecision { action: DecisionAction; reason: string }
 export interface InspectionResult { events: SecurityEvent[]; decision: PolicyDecision }
-export interface BlackHoleRuntime { readonly mode: RuntimeMode; inspect(input: RequestObservation): InspectionResult; observe(input: RequestObservation): SecurityEvent[]; decide(input: RequestObservation): PolicyDecision; resetRateLimits(): void }
+export interface BlackHoleRuntime { readonly mode: RuntimeMode; inspect(input: RequestObservation): InspectionResult; resetRateLimits(): void }
 
 const DEFAULT_WINDOW_MS = 60_000;
 const DEFAULT_MAX_REQUESTS = 120;
@@ -47,8 +47,6 @@ export function createBlackHole(options: BlackHoleOptions = {}): BlackHoleRuntim
   }
   return {
     mode, inspect,
-    observe(input) { return inspect(input).events; },
-    decide(input) { return inspect(input).decision; },
     resetRateLimits() { buckets.clear(); },
   };
 }
