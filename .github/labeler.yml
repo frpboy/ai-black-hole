@@ -1,0 +1,18 @@
+"area: core":
+  - changed-files:
+      - any-glob-to-any-file: "packages/core/**"
+"area: express":
+  - changed-files:
+      - any-glob-to-any-file: "packages/express/**"
+"area: skill":
+  - changed-files:
+      - any-glob-to-any-file: "skills/**"
+"area: docs":
+  - changed-files:
+      - any-glob-to-any-file: "docs/**"
+"area: ci":
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/**"
+          - "package.json"
+          - "pnpm-workspace.yaml"
