@@ -19,7 +19,7 @@ describe("createBlackHole", () => {
     runtime.inspect({ requestId: "1", method: "GET", path: "/", clientKey: "a" });
     expect(runtime.inspect({ requestId: "2", method: "GET", path: "/", clientKey: "a" }).decision.action).toBe("throttle");
   });
-  it("validates options", () => { expect(() => createBlackHole({ rateLimit: { maxRequests: 0 } })).toThrow(); });
+  it("evicts old client buckets when the configured cardinality limit is reached", () => {\n    const runtime = createBlackHole({ mode: "enforce", rateLimit: { maxRequests: 1, maxTrackedClients: 1 }, now: () => 1000 });\n    runtime.inspect({ requestId: "a1", method: "GET", path: "/", clientKey: "a" });\n    runtime.inspect({ requestId: "b1", method: "GET", path: "/", clientKey: "b" });\n    expect(runtime.inspect({ requestId: "a2", method: "GET", path: "/", clientKey: "a" }).decision.action).toBe("allow");\n  });\n  it("validates options", () => { expect(() => createBlackHole({ rateLimit: { maxRequests: 0 } })).toThrow(); });
   it("can reset counters", () => {
     const runtime = createBlackHole({ mode: "enforce", rateLimit: { maxRequests: 1 }, now: () => 1000 });
     runtime.inspect({ requestId: "1", method: "GET", path: "/", clientKey: "a" });
