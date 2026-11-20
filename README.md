@@ -42,7 +42,7 @@ npm run build
 npm test
 ```
 
-The initial runtime is intentionally small and dependency-free. It provides typed request observations, policy evaluation, a bounded in-memory rate limiter and synthetic decoy registry. The Express adapter is an optional integration.
+The initial runtime is intentionally small and dependency-free. It currently provides typed request observations, a basic threshold policy and a bounded in-memory rate limiter. Deception primitives are planned and are not implemented yet. The Express adapter is an optional integration.
 
 ## Runtime example
 
