@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability (private report)
+    url: https://github.com/frpboy/ai-black-hole/security/advisories/new
+    about: Do not publish exploitable vulnerability details in a public issue. If private reporting is unavailable, follow SECURITY.md.
+  - name: Questions and usage help
+    url: https://github.com/frpboy/ai-black-hole/discussions
+    about: Ask usage questions and discuss ideas. If Discussions are not enabled, use the support guidance in SUPPORT.md.
